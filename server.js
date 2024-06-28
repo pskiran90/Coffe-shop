@@ -1,7 +1,7 @@
 // server.js
 const express = require('express');
 const dotenv = require('dotenv');
-const connectDB = require('./config/db');
+const { admin } = require('./config/firebase'); // Import admin from firebase.js
 const authRoutes = require('./routes/authRoutes');
 const productRoutes = require('./routes/productRoutes');
 const orderRoutes = require('./routes/orderRoutes');
@@ -9,7 +9,6 @@ const bodyParser = require('body-parser');
 const cors = require('cors');
 
 dotenv.config();
-connectDB();
 
 const app = express();
 

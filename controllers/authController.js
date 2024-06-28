@@ -1,44 +1,55 @@
 // controllers/authController.js
-const User = require('../models/user');
-const jwt = require('jsonwebtoken');
-
-const generateToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: '30d' });
-};
+const { auth } = require('../config/firebase'); // Import the auth function from firebase config
 
 exports.registerUser = async (req, res) => {
   const { name, email, password } = req.body;
-  const userExists = await User.findOne({ email });
 
-  if (userExists) {
-    res.status(400).json({ message: 'User already exists' });
-  } else {
-    const user = await User.create({ name, email, password });
-    if (user) {
-      res.status(201).json({
-        _id: user._id,
-        name: user.name,
-        email: user.email,
-        token: generateToken(user._id),
-      });
-    } else {
-      res.status(400).json({ message: 'Invalid user data' });
+  try {
+    // Create user with email and password using Firebase Authentication
+    const userRecord = await auth().createUser({
+      email,
+      password,
+      displayName: name // Optional: You can set the display name
+    });
+
+    res.status(201).json({
+      uid: userRecord.uid,
+      email: userRecord.email,
+      displayName: userRecord.displayName,
+      message: 'User registered successfully'
+    });
+  } catch (error) {
+    // Check if the error is due to email already exists
+    if (error.code === 'auth/email-already-exists') {
+      return res.status(400).json({ message: 'Email address is already in use by another account' });
     }
+
+    console.error('Error registering user:', error);
+    res.status(500).json({ message: 'Failed to register user' });
   }
 };
 
 exports.loginUser = async (req, res) => {
   const { email, password } = req.body;
-  const user = await User.findOne({ email });
 
-  if (user && (await user.matchPassword(password))) {
-    res.json({
-      _id: user._id,
-      name: user.name,
-      email: user.email,
-      token: generateToken(user._id),
-    });
-  } else {
-    res.status(401).json({ message: 'Invalid email or password' });
+  try {
+    // Sign in user with email and password using Firebase Authentication
+    auth().signInWithEmailAndPassword(email, password)
+      .then((userCredential) => {
+        const user = userCredential.user;
+        res.json({
+          uid: user.uid,
+          email: user.email,
+          displayName: user.displayName || '', // Display name may not always be available
+          message: 'Login successful'
+        });
+      })
+      .catch((error) => {
+        console.error('Error logging in user:', error);
+        res.status(401).json({ message: 'Invalid email or password' });
+      });
+  } catch (error) {
+    console.error('Error logging in user:', error);
+    res.status(500).json({ message: 'Internal server error' });
   }
 };

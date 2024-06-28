@@ -1,23 +1,45 @@
-// models/User.js
-const mongoose = require('mongoose');
-const bcrypt = require('bcryptjs');
+// controllers/authController.js
+const { admin } = require('../config/firebase');
+const jwt = require('jsonwebtoken');
 
-const UserSchema = new mongoose.Schema({
-  name: { type: String, required: true },
-  email: { type: String, required: true, unique: true },
-  password: { type: String, required: true },
-});
-
-UserSchema.pre('save', async function (next) {
-  if (!this.isModified('password')) {
-    next();
-  }
-  const salt = await bcrypt.genSalt(10);
-  this.password = await bcrypt.hash(this.password, salt);
-});
-
-UserSchema.methods.matchPassword = async function (enteredPassword) {
-  return await bcrypt.compare(enteredPassword, this.password);
+const generateToken = (uid) => {
+  return jwt.sign({ uid }, process.env.JWT_SECRET, { expiresIn: '30d' });
 };
 
-module.exports = mongoose.model('User', UserSchema);
+exports.registerUser = async (req, res) => {
+  const { email, password } = req.body;
+  try {
+    const userRecord = await admin.auth().createUser({
+      email,
+      password,
+    });
+    const token = generateToken(userRecord.uid);
+    res.status(201).json({
+      uid: userRecord.uid,
+      email: userRecord.email,
+      token: token,
+    });
+  } catch (error) {
+    console.error('Error registering user:', error);
+    res.status(400).json({ message: 'Failed to register user' });
+  }
+};
+
+exports.loginUser = async (req, res) => {
+  const { email, password } = req.body;
+  try {
+    const userRecord = await admin.auth().getUserByEmail(email);
+    if (!userRecord) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    const token = generateToken(userRecord.uid);
+    res.json({
+      uid: userRecord.uid,
+      email: userRecord.email,
+      token: token,
+    });
+  } catch (error) {
+    console.error('Error logging in:', error);
+    res.status(401).json({ message: 'Invalid email or password' });
+  }
+};
