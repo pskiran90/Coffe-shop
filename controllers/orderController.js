@@ -1,46 +1,85 @@
-// controllers/orderController.js
-const Order = require('../models/order');
+// controllers/orderController.js - Using Firebase Firestore
+
+const Order = require('../models/Order'); // Adjust path as per your directory structure
 
 exports.createOrder = async (req, res) => {
-  const { customerName, products, quantity, orderStatus, totalPrice } = req.body;
+  try {
+    const { customerName, products, quantity, orderStatus, totalPrice } = req.body;
 
-  const order = new Order({
-    customerName,
-    products,
-    quantity,
-    orderStatus,
-    totalPrice,
-  });
+    const newOrderRef = await Order.add({
+      customerName,
+      products,
+      quantity,
+      orderStatus,
+      totalPrice,
+      orderDate: new Date(), // Assuming you want to set orderDate to the current date/time
+    });
 
-  const createdOrder = await order.save();
-  res.status(201).json(createdOrder);
+    res.status(201).json(newOrderRef.id); // Respond with the ID of the created order
+  } catch (error) {
+    console.error('Error creating order:', error);
+    res.status(500).json({ error: 'Error creating order' });
+  }
 };
 
 exports.getOrders = async (req, res) => {
-  const orders = await Order.find({}).populate('products');
-  res.json(orders);
+  try {
+    const snapshot = await Order.get();
+    const orders = [];
+
+    snapshot.forEach(doc => {
+      orders.push({
+        id: doc.id,
+        ...doc.data()
+      });
+    });
+
+    res.json(orders);
+  } catch (error) {
+    console.error('Error getting orders:', error);
+    res.status(500).json({ error: 'Error getting orders' });
+  }
 };
 
 exports.updateOrder = async (req, res) => {
-  const order = await Order.findById(req.params.id);
+  try {
+    const { id } = req.params;
+    const { orderStatus } = req.body;
 
-  if (order) {
-    order.orderStatus = req.body.orderStatus || order.orderStatus;
+    const orderRef = Order.doc(id);
+    const snapshot = await orderRef.get();
 
-    const updatedOrder = await order.save();
-    res.json(updatedOrder);
-  } else {
-    res.status(404).json({ message: 'Order not found' });
+    if (!snapshot.exists) {
+      return res.status(404).json({ message: 'Order not found' });
+    }
+
+    await orderRef.update({
+      orderStatus: orderStatus || snapshot.data().orderStatus,
+    });
+
+    res.json({ message: 'Order updated' });
+  } catch (error) {
+    console.error('Error updating order:', error);
+    res.status(500).json({ error: 'Error updating order' });
   }
 };
 
 exports.deleteOrder = async (req, res) => {
-  const order = await Order.findById(req.params.id);
+  try {
+    const { id } = req.params;
 
-  if (order) {
-    await order.remove();
-    res.json({ message: 'Order removed' });
-  } else {
-    res.status(404).json({ message: 'Order not found' });
+    const orderRef = Order.doc(id);
+    const snapshot = await orderRef.get();
+
+    if (!snapshot.exists) {
+      return res.status(404).json({ message: 'Order not found' });
+    }
+
+    await orderRef.delete();
+
+    res.json({ message: 'Order deleted' });
+  } catch (error) {
+    console.error('Error deleting order:', error);
+    res.status(500).json({ error: 'Error deleting order' });
   }
 };

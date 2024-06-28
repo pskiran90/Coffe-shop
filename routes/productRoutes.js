@@ -7,8 +7,6 @@ const {
   updateProduct,
   deleteProduct,
 } = require('../controllers/productController');
-const protect = require('../middleware/authMiddleware');
-
 router.route('/').post( createProduct).get(getProducts);
 router.route('/:id').put( updateProduct).delete( deleteProduct);
 
