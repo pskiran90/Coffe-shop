@@ -1,61 +1,62 @@
-// controllers/authController.js
-const { auth, admin } = require('../config/firebase'); // Import the auth function from firebase config
+const { admin } = require('../config/firebase');
+const jwt = require('jsonwebtoken');
+
+const generateToken = (uid) => {
+  return jwt.sign({ uid }, process.env.JWT_SECRET, { expiresIn: '30d' });
+};
 
 exports.registerUser = async (req, res) => {
-  const { name, email, password } = req.body;
-
+  const { email, password, role } = req.body;
   try {
-    // Create user with email and password using Firebase Authentication
-    const userRecord = await auth().createUser({
+    // Create user in Firebase Authentication
+    const userRecord = await admin.auth().createUser({
       email,
       password,
-      displayName: name // Optional: You can set the display name
     });
 
+    // Update user profile (optional: setting displayName)
+    await admin.auth().updateUser(userRecord.uid, {
+      displayName: email, // Example: using email as displayName
+    });
+
+    // Store user details in Firestore
+    await admin.firestore().collection('users').doc(userRecord.uid).set({
+      email: userRecord.email,
+      role: role || 'user', // Default role if not provided
+    });
+
+    const token = generateToken(userRecord.uid);
+  
     res.status(201).json({
+      token: token,
       uid: userRecord.uid,
       email: userRecord.email,
       displayName: userRecord.displayName,
       message: 'User registered successfully'
     });
   } catch (error) {
-    // Check if the error is due to email already exists
-    if (error.code === 'auth/email-already-exists') {
-      return res.status(400).json({ message: 'Email address is already in use by another account' });
-    }
-
     console.error('Error registering user:', error);
-    res.status(500).json({ message: 'Failed to register user' });
+    res.status(400).json({ message: 'Failed to register user' });
   }
 };
-// controllers/authController.js
-// controllers/authController.js
+
 exports.loginUser = async (req, res) => {
   const { email, password } = req.body;
-
   try {
-    // Sign in user with email and password using Firebase Admin SDK
-    const userCredential = await admin.auth().getUserByEmail(email);
-    if (!userCredential) {
+    const userRecord = await admin.auth().getUserByEmail(email);
+    if (!userRecord) {
       return res.status(404).json({ message: 'User not found' });
     }
-
-    // Verify the password
-    await admin.auth().updateUser(userCredential.uid, {
-      password: password
-    });
-
-    // Generate a custom token
-    const customToken = await admin.auth().createCustomToken(userCredential.uid);
-
-    // Return the custom token to the client
+    const token = generateToken(userRecord.uid);
     res.json({
-      customToken,
-      message: 'Login successful'
+      token: token,
+      uid: userRecord.uid,
+      email: userRecord.email,
+      message: 'User login successfull'
+
     });
   } catch (error) {
-    console.error('Error logging in user:', error);
+    console.error('Error logging in:', error);
     res.status(401).json({ message: 'Invalid email or password' });
   }
 };
-
