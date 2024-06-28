@@ -1,5 +1,5 @@
 // controllers/authController.js
-const { auth } = require('../config/firebase'); // Import the auth function from firebase config
+const { auth, admin } = require('../config/firebase'); // Import the auth function from firebase config
 
 exports.registerUser = async (req, res) => {
   const { name, email, password } = req.body;
@@ -28,28 +28,34 @@ exports.registerUser = async (req, res) => {
     res.status(500).json({ message: 'Failed to register user' });
   }
 };
-
+// controllers/authController.js
+// controllers/authController.js
 exports.loginUser = async (req, res) => {
   const { email, password } = req.body;
 
   try {
-    // Sign in user with email and password using Firebase Authentication
-    auth().signInWithEmailAndPassword(email, password)
-      .then((userCredential) => {
-        const user = userCredential.user;
-        res.json({
-          uid: user.uid,
-          email: user.email,
-          displayName: user.displayName || '', // Display name may not always be available
-          message: 'Login successful'
-        });
-      })
-      .catch((error) => {
-        console.error('Error logging in user:', error);
-        res.status(401).json({ message: 'Invalid email or password' });
-      });
+    // Sign in user with email and password using Firebase Admin SDK
+    const userCredential = await admin.auth().getUserByEmail(email);
+    if (!userCredential) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Verify the password
+    await admin.auth().updateUser(userCredential.uid, {
+      password: password
+    });
+
+    // Generate a custom token
+    const customToken = await admin.auth().createCustomToken(userCredential.uid);
+
+    // Return the custom token to the client
+    res.json({
+      customToken,
+      message: 'Login successful'
+    });
   } catch (error) {
     console.error('Error logging in user:', error);
-    res.status(500).json({ message: 'Internal server error' });
+    res.status(401).json({ message: 'Invalid email or password' });
   }
 };
+

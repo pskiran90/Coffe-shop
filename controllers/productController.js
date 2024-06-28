@@ -1,53 +1,88 @@
-// controllers/productController.js
 const Product = require('../models/product');
 
 exports.createProduct = async (req, res) => {
-  const { name, description, price, category, availabilityStatus } = req.body;
+  try {
+    const { name, description, price, category, availabilityStatus } = req.body;
 
-  const product = new Product({
-    name,
-    description,
-    price,
-    category,
-    availabilityStatus,
-  });
+    const productRef = await Product.add({
+      name,
+      description,
+      price,
+      category,
+      availabilityStatus,
+    });
 
-  const createdProduct = await product.save();
-  res.status(201).json(createdProduct);
+    const doc = await productRef.get();
+
+    if (!doc.exists) {
+      res.status(404).json({ message: 'Product not found' });
+    } else {
+      res.status(201).json(doc.data());
+    }
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 };
 
 exports.getProducts = async (req, res) => {
-  const products = await Product.find({});
-  res.json(products);
+  try {
+    const snapshot = await Product.get();
+    const products = [];
+
+    snapshot.forEach(doc => {
+      products.push({
+        id: doc.id,
+        ...doc.data()
+      });
+    });
+
+    res.json(products);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 };
 
 exports.updateProduct = async (req, res) => {
-  const product = await Product.findById(req.params.id);
+  try {
+    const { id } = req.params;
+    const { name, description, price, category, availabilityStatus } = req.body;
 
-  if (product) {
-    product.name = req.body.name || product.name;
-    product.description = req.body.description || product.description;
-    product.price = req.body.price || product.price;
-    product.category = req.body.category || product.category;
-    product.availabilityStatus =
-      req.body.availabilityStatus !== undefined
-        ? req.body.availabilityStatus
-        : product.availabilityStatus;
+    const productRef = Product.doc(id);
+    const snapshot = await productRef.get();
 
-    const updatedProduct = await product.save();
-    res.json(updatedProduct);
-  } else {
-    res.status(404).json({ message: 'Product not found' });
+    if (!snapshot.exists) {
+      res.status(404).json({ message: 'Product not found' });
+    } else {
+      await productRef.update({
+        name: name || snapshot.data().name,
+        description: description || snapshot.data().description,
+        price: price || snapshot.data().price,
+        category: category || snapshot.data().category,
+        availabilityStatus: availabilityStatus !== undefined ? availabilityStatus : snapshot.data().availabilityStatus
+      });
+
+      const updatedProduct = await productRef.get();
+      res.json(updatedProduct.data());
+    }
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
 };
 
 exports.deleteProduct = async (req, res) => {
-  const product = await Product.findById(req.params.id);
+  try {
+    const { id } = req.params;
 
-  if (product) {
-    await product.remove();
-    res.json({ message: 'Product removed' });
-  } else {
-    res.status(404).json({ message: 'Product not found' });
+    const productRef = Product.doc(id);
+    const snapshot = await productRef.get();
+
+    if (!snapshot.exists) {
+      res.status(404).json({ message: 'Product not found' });
+    } else {
+      await productRef.delete();
+      res.json({ message: 'Product removed' });
+    }
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
 };

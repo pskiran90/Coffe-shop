@@ -1,12 +1,6 @@
-// models/Product.js
-const mongoose = require('mongoose');
+const admin = require('firebase-admin');
+const db = admin.firestore();
 
-const ProductSchema = new mongoose.Schema({
-  name: { type: String, required: true },
-  description: { type: String },
-  price: { type: Number, required: true },
-  category: { type: String },
-  availabilityStatus: { type: Boolean, default: true },
-});
+const ProductSchema = db.collection('products');
 
-module.exports = mongoose.model('Product', ProductSchema);
+module.exports = ProductSchema;
