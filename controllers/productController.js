@@ -2,10 +2,11 @@ const Product = require('../models/product');
 
 exports.createProduct = async (req, res) => {
   try {
-    const { name, description, price, category, availabilityStatus } = req.body;
+    const { name,imageUrl, description, price, category, availabilityStatus } = req.body;
 
     const productRef = await Product.add({
       name,
+      imageUrl,
       description,
       price,
       category,
@@ -45,7 +46,7 @@ exports.getProducts = async (req, res) => {
 exports.updateProduct = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, description, price, category, availabilityStatus } = req.body;
+    const { name, description, price, category, availabilityStatus,imageUrl } = req.body;
 
     const productRef = Product.doc(id);
     const snapshot = await productRef.get();
@@ -55,6 +56,7 @@ exports.updateProduct = async (req, res) => {
     } else {
       await productRef.update({
         name: name || snapshot.data().name,
+        imageUrl: imageUrl || snapshot.data().imageUrl,
         description: description || snapshot.data().description,
         price: price || snapshot.data().price,
         category: category || snapshot.data().category,

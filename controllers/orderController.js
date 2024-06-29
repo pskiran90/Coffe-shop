@@ -4,10 +4,10 @@ const Order = require('../models/Order'); // Adjust path as per your directory s
 
 exports.createOrder = async (req, res) => {
   try {
-    const { customerName, products, quantity, orderStatus, totalPrice } = req.body;
+    const { userId, products, quantity, orderStatus, totalPrice } = req.body;
 
     const newOrderRef = await Order.add({
-      customerName,
+      userId,
       products,
       quantity,
       orderStatus,
@@ -15,7 +15,7 @@ exports.createOrder = async (req, res) => {
       orderDate: new Date(), // Assuming you want to set orderDate to the current date/time
     });
 
-    res.status(201).json(newOrderRef.id); // Respond with the ID of the created order
+    res.status(200).json(newOrderRef.id); // Respond with the ID of the created order
   } catch (error) {
     console.error('Error creating order:', error);
     res.status(500).json({ error: 'Error creating order' });
@@ -44,7 +44,7 @@ exports.getOrders = async (req, res) => {
 exports.updateOrder = async (req, res) => {
   try {
     const { id } = req.params;
-    const { orderStatus } = req.body;
+    const { orderStatus, quantity } = req.body;
 
     const orderRef = Order.doc(id);
     const snapshot = await orderRef.get();
@@ -53,8 +53,10 @@ exports.updateOrder = async (req, res) => {
       return res.status(404).json({ message: 'Order not found' });
     }
 
+    // Only update the fields that are provided in the request body
     await orderRef.update({
       orderStatus: orderStatus || snapshot.data().orderStatus,
+      quantity: quantity || snapshot.data().quantity, // Update quantity if provided
     });
 
     res.json({ message: 'Order updated' });
